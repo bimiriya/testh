@@ -1,0 +1,99 @@
+{%load static%}
+{% load widget_tweaks %}
+<form action="" method="post"  enctype="multipart/form-data">{% csrf_token %}
+
+    {{form.img|set_data:"bind: event: {change: read_img($element)}"}}
+    {{form.nickname}}
+    {{form.pet_name}}
+    <input type="button"  value="subir">
+    </form>
+<br>
+    <img id="img_preview" data-bind="attr: {src: preview}" alt="">
+<br><br>
+
+<ol data-bind="foreach: posts">
+    <li style="border-bottom: 2px dotted black">
+        <br><br>
+        <img style="width: 100px" data-bind="attr: {src: src}" alt="">
+        <br>
+        <small>nickname:</small>
+        <h1 data-bind="text:nickname"></h1>
+        <small>mascota:</small>
+        <h1 data-bind="text:pet_name"></h1>
+        <button data-bind="click: function(bool) {vote(true)}">
+            up 
+            <span data-bind="text: up"></span>
+        </button>
+            <button data-bind="click: function(bool) {vote(false)}">
+                down
+                <span data-bind="text: down"></span></button>
+        </button>
+        <br><br>
+    </li>
+</ol>
+
+
+<script src="{% static 'js/jquery.js' %}"></script>
+<script src="{% static 'js/ko.js' %}"></script>
+<script>
+function Post(data) {
+    var self = this;
+    self.src = ko.observable(data['base_64']);
+    self.nickname = ko.observable(data['nickname']);
+    self.up = ko.observable(data['votes_up']);
+    self.down = ko.observable(data['votes_down']);
+    self.pet_name = ko.observable(data['pet_name']);
+    self.pk = ko.observable(data['id']);
+    self.vote = function(bool) {
+        var context = {
+            pk: self.pk(),
+            bool: bool.toString(),
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+        }
+        $.post("{% url 'vote' %}", context)
+                .done(function () {
+                    dash_model.get_posts()
+                })
+                .fail(function () {
+                })
+                .always(function () {
+                });
+    }
+}
+
+function DashModel() {
+    var self = this;
+    self.posts = ko.observableArray();
+    self.preview = ko.observable();
+    self.get_posts = function() {
+        $.get("{% url 'get_posts' %}")
+                .done(function (data) {
+                    var mapped_posts = $.map(data.posts, function (item) {
+                        var post = new Post(item)
+                        return post
+                        })
+                self.posts(mapped_posts)
+            
+                })
+                .fail(function () {
+                })
+                .always(function () {
+                });
+    }
+    self.read_img = function(input) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+
+        reader.onload = function(e) {
+            self.preview(e.target.result)
+        }
+
+        reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    self.get_posts()
+}
+var dash_model = new DashModel()
+ko.applyBindings(dash_model)
+</script>
